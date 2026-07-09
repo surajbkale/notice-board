@@ -1,78 +1,164 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
+import Head from "next/head";
+import { useState } from "react";
+import { prisma } from "@/lib/prisma";
+import NoticeCard from "@/components/NoticeCard";
+import NoticeModal from "@/components/NoticeModal";
+import type { Notice } from "@/types/notice";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+type ModalState =
+  | { mode: "create" }
+  | { mode: "edit"; notice: Notice }
+  | null;
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+function sortNotices(notices: Notice[]): Notice[] {
+  return [...notices].sort((a, b) => {
+    if (a.priority !== b.priority) {
+      return a.priority === "Urgent" ? -1 : 1;
+    }
+    return new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime();
+  });
+}
 
-export default function Home() {
+export const getServerSideProps = (async () => {
+  const rows = await prisma.notice.findMany({
+    orderBy: [{ priority: "desc" }, { publishDate: "desc" }],
+  });
+  return {
+    props: {
+      initialNotices: JSON.parse(JSON.stringify(rows)) as Notice[],
+    },
+  };
+}) satisfies GetServerSideProps<{ initialNotices: Notice[] }>;
+
+export default function Home({
+  initialNotices,
+}: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  const [notices, setNotices] = useState<Notice[]>(initialNotices);
+  const [modal, setModal] = useState<ModalState>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDelete(id: number) {
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/notices/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setDeleteError(data.error ?? "Failed to delete.");
+        return;
+      }
+      setNotices((prev) => prev.filter((n) => n.id !== id));
+    } catch {
+      setDeleteError("Network error. Please try again.");
+    }
+  }
+
+  function handleSave(notice: Notice) {
+    setNotices((prev) => {
+      const exists = prev.some((n) => n.id === notice.id);
+      const updated = exists
+        ? prev.map((n) => (n.id === notice.id ? notice : n))
+        : [notice, ...prev];
+      return sortNotices(updated);
+    });
+    setModal(null);
+  }
+
+  const urgentCount = notices.filter((n) => n.priority === "Urgent").length;
+
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black`}
-    >
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      <Head>
+        <title>Notice Board</title>
+        <meta name="description" content="Stay up to date with the latest notices, announcements, and events." />
+      </Head>
+
+      <div className="min-h-screen" style={{ backgroundColor: "#f5f0e8" }}>
+        {/* Header */}
+        <header style={{ backgroundColor: "#1c1917" }}>
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-lg"
+                style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+              >
+                📋
+              </div>
+              <div>
+                <h1 className="text-base font-semibold text-white">Notice Board</h1>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  {notices.length} {notices.length === 1 ? "notice" : "notices"}
+                  {urgentCount > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-600/20 px-1.5 py-0.5 text-red-400">
+                      {urgentCount} urgent
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setModal({ mode: "create" })}
+              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-stone-900 transition-colors hover:bg-stone-100"
+            >
+              + Post Notice
+            </button>
+          </div>
+        </header>
+
+        {/* Error banner */}
+        {deleteError && (
+          <div className="border-b border-red-100 bg-red-50 px-6 py-3 text-center text-sm text-red-700">
+            {deleteError}{" "}
+            <button
+              onClick={() => setDeleteError(null)}
+              className="ml-2 font-medium underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Main */}
+        <main className="mx-auto max-w-6xl px-6 py-8">
+          {notices.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-28 text-center">
+              <div className="mb-4 text-5xl">📭</div>
+              <h2 className="mb-2 text-lg font-semibold text-stone-700">
+                No notices yet
+              </h2>
+              <p className="mb-6 text-sm text-stone-400">
+                Post the first notice to get started.
+              </p>
+              <button
+                onClick={() => setModal({ mode: "create" })}
+                className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-stone-700"
+              >
+                + Post Notice
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {notices.map((notice) => (
+                <NoticeCard
+                  key={notice.id}
+                  notice={notice}
+                  onEdit={(n) => setModal({ mode: "edit", notice: n })}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {modal && (
+        <NoticeModal
+          mode={modal.mode}
+          initial={modal.mode === "edit" ? modal.notice : undefined}
+          onClose={() => setModal(null)}
+          onSave={handleSave}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the index.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs/pages/getting-started?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </>
   );
 }

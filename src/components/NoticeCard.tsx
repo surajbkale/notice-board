@@ -1,4 +1,7 @@
+import { useState } from "react";
+import Link from "next/link";
 import type { Notice } from "@/types/notice";
+import ConfirmModal from "./ConfirmModal";
 
 const categoryStyle: Record<string, string> = {
   Exam: "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100",
@@ -16,68 +19,79 @@ function formatDate(iso: string) {
 
 type Props = {
   notice: Notice;
-  onEdit: (notice: Notice) => void;
   onDelete: (id: number) => void;
 };
 
-export default function NoticeCard({ notice, onEdit, onDelete }: Props) {
+export default function NoticeCard({ notice, onDelete }: Props) {
   const isUrgent = notice.priority === "Urgent";
-
-  function handleDelete() {
-    if (window.confirm(`Delete "${notice.title}"?`)) {
-      onDelete(notice.id);
-    }
-  }
+  const [showConfirm, setShowConfirm] = useState(false);
 
   return (
-    <article
-      className={[
-        "flex flex-col bg-white rounded-xl",
-        "border border-stone-200 border-l-4",
-        isUrgent ? "border-l-red-600" : "border-l-stone-200",
-        "shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between gap-2 px-5 pt-5 pb-3">
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${categoryStyle[notice.category]}`}
-        >
-          {notice.category}
-        </span>
-        {isUrgent && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-            <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-            Urgent
+    <>
+      <article
+        className={[
+          "flex flex-col bg-white rounded-xl",
+          "border border-stone-200 border-l-4",
+          isUrgent ? "border-l-red-600" : "border-l-stone-200",
+          "shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        ].join(" ")}
+      >
+        <div className="flex items-start justify-between gap-2 px-5 pt-5 pb-3">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${categoryStyle[notice.category]}`}
+          >
+            {notice.category}
           </span>
-        )}
-      </div>
-
-      <div className="flex-1 px-5 pb-4">
-        <h2 className="mb-2 line-clamp-2 text-[15px] font-semibold leading-snug text-stone-900">
-          {notice.title}
-        </h2>
-        <p className="line-clamp-3 text-sm leading-relaxed text-stone-500">
-          {notice.body}
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-stone-100 px-5 py-3">
-        <time className="text-xs text-stone-400">{formatDate(notice.publishDate)}</time>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => onEdit(notice)}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-100"
-          >
-            Edit
-          </button>
-          <button
-            onClick={handleDelete}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:bg-red-50 hover:text-red-600"
-          >
-            Delete
-          </button>
+          {isUrgent && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+              Urgent
+            </span>
+          )}
         </div>
-      </div>
-    </article>
+
+        <div className="flex-1 px-5 pb-4">
+          <h2 className="mb-2 line-clamp-2 text-[15px] font-semibold leading-snug text-stone-900">
+            {notice.title}
+          </h2>
+          <p className="line-clamp-3 text-sm leading-relaxed text-stone-500">
+            {notice.body}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-stone-100 px-5 py-3">
+          <time className="text-xs text-stone-400">
+            {formatDate(notice.publishDate)}
+          </time>
+          <div className="flex items-center gap-1">
+            <Link
+              href={`/notices/${notice.id}/edit`}
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-100"
+            >
+              Edit
+            </Link>
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </article>
+
+      {showConfirm && (
+        <ConfirmModal
+          title="Delete this notice?"
+          description={`"${notice.title}" will be permanently removed. This cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            setShowConfirm(false);
+            onDelete(notice.id);
+          }}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
+    </>
   );
 }

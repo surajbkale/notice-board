@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import type { Notice, Category, Priority } from "@/types/notice";
@@ -42,6 +42,7 @@ type Props = {
 export default function NoticeForm({ initial }: Props) {
   const router = useRouter();
   const isEdit = Boolean(initial);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>({
     title: initial?.title ?? "",
@@ -56,6 +57,8 @@ export default function NoticeForm({ initial }: Props) {
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (attempted) setFieldErrors(validate(form));
@@ -80,6 +83,43 @@ export default function NoticeForm({ initial }: Props) {
     ].join(" ");
   }
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    setUploading(true);
+
+    try {
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+
+      const data = new FormData();
+      data.append("file", file);
+      data.append("upload_preset", uploadPreset);
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        { method: "POST", body: data }
+      );
+      if (!res.ok) throw new Error("Upload failed.");
+
+      const json = await res.json();
+      setForm((prev) => ({ ...prev, imageUrl: json.secure_url as string }));
+    } catch {
+      setUploadError("Failed to upload image. Please try again.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function clearImage() {
+    setForm((prev) => ({ ...prev, imageUrl: "" }));
+    setUploadError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setAttempted(true);
@@ -97,7 +137,7 @@ export default function NoticeForm({ initial }: Props) {
       publishDate: form.publishDate,
       category: form.category,
       priority: form.priority,
-      ...(form.imageUrl.trim() ? { imageUrl: form.imageUrl.trim() } : {}),
+      imageUrl: form.imageUrl.trim() || null,
     };
 
     const url = isEdit ? `/api/notices/${initial!.id}` : "/api/notices";
@@ -172,7 +212,9 @@ export default function NoticeForm({ initial }: Props) {
               onChange={field("category")}
             >
               {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
@@ -184,7 +226,9 @@ export default function NoticeForm({ initial }: Props) {
               onChange={field("priority")}
             >
               {PRIORITIES.map((p) => (
-                <option key={p} value={p}>{p}</option>
+                <option key={p} value={p}>
+                  {p}
+                </option>
               ))}
             </select>
           </div>
@@ -199,22 +243,115 @@ export default function NoticeForm({ initial }: Props) {
             onChange={field("publishDate")}
           />
           {attempted && fieldErrors.publishDate && (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.publishDate}</p>
+            <p className="mt-1 text-xs text-red-600">
+              {fieldErrors.publishDate}
+            </p>
           )}
         </div>
 
         <div>
           <label className={labelClass}>
-            Image URL{" "}
+            Image{" "}
             <span className="font-normal text-stone-400">(optional)</span>
           </label>
-          <input
-            type="url"
-            className={inputCls("imageUrl")}
-            placeholder="https://..."
-            value={form.imageUrl}
-            onChange={field("imageUrl")}
-          />
+
+          {form.imageUrl ? (
+            <div className="relative overflow-hidden rounded-lg border border-stone-200">
+              <img
+                src={form.imageUrl}
+                alt="Preview"
+                className="h-44 w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={clearImage}
+                className="absolute right-2 top-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-black/80"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path
+                    d="M7.5 2.5l-5 5M2.5 2.5l5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Remove
+              </button>
+            </div>
+          ) : (
+            <label
+              className={[
+                "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed",
+                "cursor-pointer px-4 py-10 text-center transition-colors",
+                uploading
+                  ? "border-stone-300 bg-stone-50 cursor-wait"
+                  : uploadError
+                    ? "border-red-300 hover:border-red-400 hover:bg-red-50"
+                    : "border-stone-200 hover:border-stone-400 hover:bg-stone-50",
+              ].join(" ")}
+            >
+              {uploading ? (
+                <>
+                  <svg
+                    className="h-6 w-6 animate-spin text-stone-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  <span className="text-sm text-stone-500">Uploading…</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="text-stone-400"
+                  >
+                    <path
+                      d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="text-sm font-medium text-stone-600">
+                    Click to upload an image
+                  </span>
+                  <span className="text-xs text-stone-400">
+                    PNG, JPG, GIF, WEBP — up to 10 MB
+                  </span>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploading}
+                onChange={handleFileChange}
+              />
+            </label>
+          )}
+
+          {uploadError && (
+            <p className="mt-1.5 text-xs text-red-600">{uploadError}</p>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-2">
@@ -226,14 +363,10 @@ export default function NoticeForm({ initial }: Props) {
           </Link>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || uploading}
             className="rounded-lg bg-stone-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-700 disabled:opacity-50"
           >
-            {submitting
-              ? "Saving…"
-              : isEdit
-              ? "Save Changes"
-              : "Post Notice"}
+            {submitting ? "Saving…" : isEdit ? "Save Changes" : "Post Notice"}
           </button>
         </div>
       </form>

@@ -2,6 +2,8 @@
 
 A full-stack notice board application built as a Reno Platforms engineering assignment. Supports creating, viewing, editing, and deleting notices across three categories — Exam, Event, and General — with image upload support via Cloudinary.
 
+**Live demo:** [https://notice-board-iota-dun.vercel.app](https://notice-board-iota-dun.vercel.app)
+
 ## Tech Stack
 
 | Layer | Technology |

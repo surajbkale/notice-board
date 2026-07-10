@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { prisma } from "@/lib/prisma";
 import NoticeCard from "@/components/NoticeCard";
+import NoticeViewModal from "@/components/NoticeViewModal";
 import type { Notice } from "@/types/notice";
 
 export const getServerSideProps = (async () => {
@@ -22,6 +23,7 @@ export default function Home({
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
   const [notices, setNotices] = useState<Notice[]>(initialNotices);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [viewingNotice, setViewingNotice] = useState<Notice | null>(null);
 
   const urgentCount = notices.filter((n) => n.priority === "Urgent").length;
 
@@ -119,12 +121,21 @@ export default function Home({
                   key={notice.id}
                   notice={notice}
                   onDelete={handleDelete}
+                  onView={setViewingNotice}
                 />
               ))}
             </div>
           )}
         </main>
       </div>
+
+      {viewingNotice && (
+        <NoticeViewModal
+          notice={viewingNotice}
+          onClose={() => setViewingNotice(null)}
+          onDelete={handleDelete}
+        />
+      )}
     </>
   );
 }

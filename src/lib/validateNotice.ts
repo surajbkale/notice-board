@@ -6,7 +6,7 @@ export type NoticePayload = {
   publishDate: Date;
   category: Category;
   priority: Priority;
-  imageUrl?: string;
+  imageUrl?: string | null;
 };
 
 export type ValidationResult =
@@ -55,8 +55,10 @@ export function validateNoticePayload(body: unknown): ValidationResult {
     errors.push(`\`priority\` must be one of: ${VALID_PRIORITIES.join(", ")}.`);
   }
 
-  let imageUrl: string | undefined;
-  if (raw.imageUrl !== undefined) {
+  let imageUrl: string | null | undefined;
+  if (raw.imageUrl === null) {
+    imageUrl = null;
+  } else if (raw.imageUrl !== undefined) {
     if (typeof raw.imageUrl !== "string" || raw.imageUrl.trim() === "") {
       errors.push("`imageUrl`, when provided, must be a non-empty string.");
     } else {

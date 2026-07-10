@@ -90,7 +90,7 @@ export default function NoticeViewModal({ notice, onClose, onDelete }: Props) {
               <img
                 src={notice.imageUrl}
                 alt="Notice attachment"
-                className="mb-6 max-h-80 w-full rounded-xl object-cover"
+                className="mb-6 w-full rounded-xl"
               />
             )}
             <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-stone-700">

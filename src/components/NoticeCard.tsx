@@ -3,6 +3,12 @@ import Link from "next/link";
 import type { Notice } from "@/types/notice";
 import ConfirmModal from "./ConfirmModal";
 
+const categoryGradient: Record<string, string> = {
+  Exam: "linear-gradient(135deg, #4f46e5 0%, #1e1b4b 100%)",
+  Event: "linear-gradient(135deg, #059669 0%, #022c22 100%)",
+  General: "linear-gradient(135deg, #b45309 0%, #78350f 100%)",
+};
+
 const categoryStyle: Record<string, string> = {
   Exam: "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100",
   Event: "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100",
@@ -38,24 +44,35 @@ export default function NoticeCard({ notice, onDelete, onView }: Props) {
           "shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
         ].join(" ")}
       >
-        <div className="flex items-start justify-between gap-2 px-5 pt-5 pb-3">
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${categoryStyle[notice.category]}`}
-          >
-            {notice.category}
-          </span>
-          {isUrgent && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-              <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-              Urgent
-            </span>
+        <div
+          className="relative h-48 overflow-hidden rounded-t-xl shrink-0"
+          style={{ background: categoryGradient[notice.category] }}
+        >
+          {notice.imageUrl && (
+            <img
+              src={notice.imageUrl}
+              alt="Notice image"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           )}
-        </div>
-
-        <div className="flex-1 px-5 pb-4">
-          <h2 className="mb-2 line-clamp-2 text-[15px] font-semibold leading-snug text-stone-900">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white ring-1 ring-inset ring-white/30 backdrop-blur-sm">
+              {notice.category}
+            </span>
+            {isUrgent && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+                Urgent
+              </span>
+            )}
+          </div>
+          <h2 className="absolute bottom-3 left-4 right-4 line-clamp-2 text-lg font-bold leading-snug text-white drop-shadow-sm">
             {notice.title}
           </h2>
+        </div>
+
+        <div className="flex-1 px-5 pt-3 pb-4">
           <p className="line-clamp-3 text-sm leading-relaxed text-stone-500">
             {notice.body}
           </p>

@@ -20,17 +20,19 @@ function formatDate(iso: string) {
 type Props = {
   notice: Notice;
   onDelete: (id: number) => void;
+  onView: (notice: Notice) => void;
 };
 
-export default function NoticeCard({ notice, onDelete }: Props) {
+export default function NoticeCard({ notice, onDelete, onView }: Props) {
   const isUrgent = notice.priority === "Urgent";
   const [showConfirm, setShowConfirm] = useState(false);
 
   return (
     <>
       <article
+        onClick={() => onView(notice)}
         className={[
-          "flex flex-col bg-white rounded-xl",
+          "flex flex-col bg-white rounded-xl text-left cursor-pointer",
           "border border-stone-200 border-l-4",
           isUrgent ? "border-l-red-600" : "border-l-stone-200",
           "shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
@@ -66,12 +68,16 @@ export default function NoticeCard({ notice, onDelete }: Props) {
           <div className="flex items-center gap-1">
             <Link
               href={`/notices/${notice.id}/edit`}
+              onClick={(e) => e.stopPropagation()}
               className="rounded-md px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-100"
             >
               Edit
             </Link>
             <button
-              onClick={() => setShowConfirm(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowConfirm(true);
+              }}
               className="rounded-md px-3 py-1.5 text-xs font-medium text-stone-600 transition-colors hover:bg-red-50 hover:text-red-600"
             >
               Delete
